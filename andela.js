@@ -1,39 +1,43 @@
-const fetchResults = (event) => {
-    const url = new URL('https://gist.githubusercontent.com/Miserlou/c5cd8364bf9b2420bb29/raw/2bf258763cdddd704f8ffd3ea9a3e81d25e2c6f6/cities.json');
-    fetch(url)
-    .then(response => {
-      return response.json();
-    })
-    .then(body => {
-      searchAlgo(body, event);
-    })
-    .catch(error => {
-      console.log(`fetch error occured: ${error}!`);
-    });
+const appState = {
+  data: undefined,
+}
+const fetchResults = (input) => {
+      const url = new URL('https://gist.githubusercontent.com/Miserlou/c5cd8364bf9b2420bb29/raw/2bf258763cdddd704f8ffd3ea9a3e81d25e2c6f6/cities.json');
+      
+    
+    if(!appState.data){     
+      fetch(url)
+      .then(response => {        
+        return response.json();
+      })
+      .then(body => {
+        appState.data = body;
+        searchAlgo(body, input);
+      })
+      .catch(error => {
+        console.error(error);
+      });
+    }else{
+      searchAlgo(appState.data, input);
+    }    
   };
   
-  const searchAlgo = (body, event) => {
-    const searchQuery = event.target.value;
-    const regex = new RegExp(searchQuery, "i"),
-          divArray = document.querySelectorAll('div#seach-results div'),
-          node = document.querySelector('div#search-results');
-    body.forEach((field) => {
-      searchFunc(field, regex);
+  const searchAlgo = (body, input) => {
+    const searchQuery = input.value.toLowerCase();    
+    const node = document.querySelector('div#search-results');
+    appState.data = body.filter(city => {
+      return (city.state.toLowerCase().startsWith(searchQuery) || city.city.toLowerCase().startsWith(searchQuery));
     });
-    
-    for(let i = 0; i < divArray.length; i++) {
-      let originalDiv = divArray[i];
-      for(let x = 0; x < divArray.length; x++) {
-        let duplicateDiv = divArray[x];
-        if(divArray.indexOf(originalDiv) !== divArray.indexOf(duplicateDiv)) {
-          if(originalDiv.childNodes[2].textContent === duplicateDiv.childNodes[2].textContent) {
-            duplicateDiv.remove();
-          }
-        }
-      }
-    }
 
-    if(node.children.length === 0) {
+    cleanDom(); // cleans dom for mounting new matches
+
+    appState.data.forEach((field) => {
+      // adds matched cities/states from a filtered list data      
+      searchFunc(field);           
+    });    
+    
+
+    if(node.children.length === 0) {      
         let myDiv = document.createElement('div'),
             p1 = document.createElement('p'),
             p2 = document.createElement('p'),
@@ -78,28 +82,18 @@ const fetchResults = (event) => {
       }
     })
   }
-
-  const nodeNotInDom = (field) => {
+ 
+  const cleanDom = () => {
     let myDivs = document.querySelectorAll('div#search-results div');
     for(let i = 0; i < myDivs.length; i++) {
       let div = myDivs[i];
-      if(div.childNodes[2].textContent === 'Population: '+field.population) {
-        return false;
-      }
-      else {
-        return true;
-      }
+      div.remove();      
     }
   };
 
-  const searchFunc = (field, regex) => {
-    let citySearchString = field.city,
-        divHasChildren = document.querySelector('div#search-results').hasChildNodes();
-        stateSearchString = field.state,
-        cityMatch = citySearchString.match(regex),
-        stateMatch = stateSearchString.match(regex);
-
-    if((cityMatch !== null || stateMatch !== null)) {
+  const searchFunc = (field) => {
+    
+    let divHasChildren = document.querySelector('div#search-results').hasChildNodes();    
 
       if(divHasChildren) {
         let divsArray = document.querySelectorAll('div#search-results div');
@@ -111,7 +105,7 @@ const fetchResults = (event) => {
         }
       }
 
-      if(document.querySelector('div#search-results').childNodes.length === 1 || nodeNotInDom(field)) {
+    
         let newDiv = document.createElement('div'),
             p1 = document.createElement('p'),
             p2 = document.createElement('p'),
@@ -120,13 +114,13 @@ const fetchResults = (event) => {
             p6 = document.createElement('p'),
             p7 = document.createElement('p')
 
-            city = document.createTextNode('City: '+field.city),
-            state = document.createTextNode('State: '+field.state),
-            population = document.createTextNode('Population: '+field.population),
-            rank = document.createTextNode('Rank: '+field.rank),
-            longitude = document.createTextNode('Longitude: '+field.longitude),
+            city = document.createTextNode('City: ' + field.city),
+            state = document.createTextNode('State: ' + field.state),
+            population = document.createTextNode('Population: ' + field.population),
+            rank = document.createTextNode('Rank: ' + field.rank),
+            longitude = document.createTextNode('Longitude: ' + field.longitude),
             percentageGrowth = document.createTextNode
-            ('Growth Percentage(2000 to 2013): '+field.growth_from_2000_to_2013);
+            ('Growth Percentage(2000 to 2013): ' + field.growth_from_2000_to_2013);
         
         p1.appendChild(city);
         p2.appendChild(state);
@@ -140,41 +134,36 @@ const fetchResults = (event) => {
         newDiv.appendChild(p4);
         newDiv.appendChild(p6);
         newDiv.appendChild(p7);
-        document.querySelector('div #search-results').appendChild(newDiv);
+        document.querySelector('div#search-results').appendChild(newDiv);   
+  };
 
-      }
-    }
-    else {
-      //remove dynamic DOM node...
-      let divsArray = document.querySelectorAll('div#search-results > div');
-      divsArray.forEach((div) => {
-        if(typeof div !== 'undefined') {
-          if(div.childNodes[0].textContent === 'City: '+field.city) {
-            div.remove();
-          }
-        }
-      })
-    }
+  const city404 = () => {
+    let myDiv = document.createElement('div'),
+    p1 = document.createElement('p'),
+    p2 = document.createElement('p'),
+    text1 = document.createTextNode('Sorry! No cities found!'),
+    text2 = document.createTextNode('Refine your search.');
+
+    p1.appendChild(text1);
+    p2.appendChild(text2);
+    myDiv.appendChild(p1);
+    myDiv.appendChild(p2);
+    document.querySelector('div#search-results').appendChild(myDiv);
   };
   
   const eventListeningFunctn = () => {
     const inputField = document.querySelector('#input-search input');
-    inputField.addEventListener('keydown', (event) => {
-      if((event.key === 'Backspace' && event.target.value === '')) {
-        let myDiv = document.createElement('div'),
-            p1 = document.createElement('p'),
-            p2 = document.createElement('p'),
-            text1 = document.createTextNode('Sorry! No cities found!'),
-            text2 = document.createTextNode('Refine your search.');
+    inputField.addEventListener('keyup', (event) => {
+       //key up gives us the key pressed immediately, keydown is fired before value is written to field    
+      
+      if(event.key === 'Backspace' || event.key === 'Delete') appState.data = undefined; // refetch data once we delete part of the search string
 
-        p1.appendChild(text1);
-        p2.appendChild(text2);
-        myDiv.appendChild(p1);
-        myDiv.appendChild(p2);
-        document.querySelector('div#search-results').appendChild(myDiv);
+      if(((event.key === 'Backspace' || event.key === 'Delete') && event.target.value === '') ||inputField.value === '') {
+        cleanDom();         
+        city404();
       }
       else {
-        fetchResults(event);
+        fetchResults(inputField);
       }
     });
   };
